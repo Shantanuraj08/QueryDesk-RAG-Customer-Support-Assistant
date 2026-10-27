@@ -74,3 +74,5 @@ skills-lock.json
 # RAG test & diagnostic scripts
 rag-service/test_*.py
 rag-service/inspect_*.py
+
+/AGENTS.md
