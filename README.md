@@ -1,36 +1,175 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QueryDesk — AI Support Assistant
 
-## Getting Started
+QueryDesk is a full-stack customer support assistant that lets users upload knowledge documents (PDF, DOCX, TXT), ask natural-language questions in conversational threads, and receive source-grounded answers generated via Retrieval-Augmented Generation (RAG).
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Key Features
+
+- **Authentication:** Email and password registration, login, and session persistence powered by Better Auth.
+- **Multi-Chat Threads:** Create, switch, and delete up to 5 concurrent conversations per user.
+- **Auto-Generated Titles:** Chat threads automatically take their title from the user's initial question and persist to PostgreSQL.
+- **In-Chat Document Uploads:** Upload `.pdf`, `.docx`, and `.txt` files up to 10 MB directly into a conversation. Includes immediate in-flight visual feedback with uploading spinners, and retained `FAILED` states with error messages if processing encounters issues.
+- **Context-Grounded Answers & Citations:** Answers are synthesized from retrieved document chunks, accompanied by source cards displaying document name, page number, relevance score, and text excerpts.
+- **Cursor-Based Scroll Pagination:** Dynamically fetches older conversation turns when scrolling near the top while maintaining the user's scroll position.
+- **Coordinated Resource Deletion:** Deleting a document or conversation removes database records and issues requests to delete corresponding vector points in Qdrant (coordinated deletion, rather than an atomic cross-system transaction).
+
+---
+
+## Tech Stack
+
+- **Frontend:** Next.js 16 (App Router), React 19, Tailwind CSS v4, Lucide React
+- **API Layer:** Next.js Route Handlers (`app/api/`)
+- **RAG Microservice:** FastAPI, Uvicorn, Python 3.10+
+- **Database & ORM:** PostgreSQL (Neon-compatible), Prisma ORM 7 (`@prisma/adapter-pg`)
+- **Authentication:** Better Auth with Prisma PostgreSQL adapter
+- **Vector Database:** Qdrant Cloud
+- **AI & LLM Services:**
+  - **Embeddings:** Google Gemini API (`models/text-embedding-004`)
+  - **Generation:** Groq API (`llama-3.3-70b-versatile`)
+- **Document Processing:** PyPDF, docx2txt, LangChain text splitters
+
+---
+
+## Architecture
+
+```
+┌───────────────────────┐
+│  Next.js Frontend UI  │
+└───────────┬───────────┘
+            │ HTTP (Session Cookie)
+            ▼
+┌────────────────────────────────────────────────────────┐
+│               Next.js Route Handlers                   │
+│   (/api/auth, /api/chats, /api/chats/[id]/documents)   │
+└───────────────┬────────────────────────┬───────────────┘
+                │                        │
+       Prisma 7 │                        │ HTTP Internal
+                ▼                        ▼
+     ┌────────────────────┐   ┌───────────────────────────┐
+     │   PostgreSQL DB    │   │    FastAPI RAG Service    │
+     │ (Users, Sessions,  │   │  - Document parsing       │
+     │  Chats, Documents, │   │  - LangChain chunking     │
+     │  Turns/Messages)   │   │  - Similarity retrieval   │
+     └────────────────────┘   └───────┬───────────┬───────┘
+                                      │           │
+                Gemini API / Groq API │           │ Vector Search
+                                      ▼           ▼
+                           ┌─────────────┐     ┌────────────────┐
+                           │ LLM & Embed │     │  Qdrant Cloud  │
+                           └─────────────┘     └────────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Application & Data Management:** Next.js manages user sessions via Better Auth cookies and persists user, chat, document status, and message history in PostgreSQL through Prisma ORM.
+- **Ingestion Pipeline:** Uploaded documents are saved as `PENDING` in PostgreSQL and forwarded to FastAPI. FastAPI parses and chunks text with LangChain, generates embeddings via Gemini, and indexes vectors into Qdrant tagged with `chat_id` and `document_id`. Upon completion, the database status updates to `READY`.
+- **Retrieval & Answer Generation:** User queries trigger a vector similarity search in Qdrant filtered by `chat_id`. Top matching chunks are injected into a prompt sent to Groq for grounded answer generation. Results and citation metadata are persisted to PostgreSQL and returned to the client.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup & Local Development
 
-## Learn More
+### Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- Node.js 20+ and npm
+- Python 3.10+ and `venv`
+- PostgreSQL instance (e.g., Neon or local)
+- Qdrant Cloud cluster or local instance
+- Google Gemini and Groq API keys
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 1. Next.js Web Application
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+From the project root:
 
-## Deploy on Vercel
+```bash
+# 1. Install dependencies
+npm install
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# 2. Configure environment variables (see Environment Variables section below)
+# Create .env in the project root
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# 3. Synchronize database schema and generate Prisma client
+npx prisma db push
+npx prisma generate
+
+# 4. Start Next.js development server
+npm run dev
+```
+
+The application will be accessible at `http://localhost:3000`.
+
+### 2. FastAPI RAG Service
+
+From the `rag-service/` directory in a separate terminal:
+
+```bash
+cd rag-service
+
+# 1. Create and activate a Python virtual environment
+python -m venv .venv
+
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+# macOS/Linux:
+# source .venv/bin/activate
+
+# 2. Install Python dependencies (groq is listed in requirements.txt)
+pip install -r requirements.txt
+
+# 3. Configure environment variables (see Environment Variables section below)
+# Create rag-service/.env
+
+# 4. Initialize Qdrant collection and payload indexes (one-time setup for a fresh Qdrant cluster)
+python setup_qdrant.py          # Creates the 'support_documents' collection (3072-dim vectors, cosine distance)
+python setup_payload_indexes.py # Creates keyword indexes on chat_id and document_id for filtered search
+
+# 5. Start the FastAPI service
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+The RAG service will run at `http://127.0.0.1:8000`.
+
+---
+
+## Environment Variables
+
+### Root Application (.env)
+
+```env
+DATABASE_URL="postgresql://<user>:<password>@<host>/<database>?sslmode=require"
+BETTER_AUTH_SECRET="<random-secret-key>"
+BETTER_AUTH_URL="http://localhost:3000"
+RAG_SERVICE_URL="http://127.0.0.1:8000"
+```
+
+### RAG Service (rag-service/.env)
+
+```env
+GEMINI_API_KEY="<your-gemini-api-key>"
+GEMINI_EMBEDDING_MODEL="models/text-embedding-004"
+
+GROQ_API_KEY="<your-groq-api-key>"
+GROQ_GENERATION_MODEL="llama-3.3-70b-versatile"
+
+QDRANT_URL="https://<cluster-id>.<region>.gcp.cloud.qdrant.io:6333"
+QDRANT_API_KEY="<your-qdrant-api-key>"
+QDRANT_COLLECTION="support_documents"
+```
+
+---
+
+## Limitations (MVP1) & Future Work
+
+### Current MVP1 Limitations
+
+- **Conversation Cap:** Hard limit of 5 active conversations per user account (`MAX_CHATS = 5`).
+- **File Format & Size:** Only `.pdf`, `.docx`, and `.txt` files up to 10 MB are accepted.
+- **Question Length:** Questions are capped at 2,000 characters.
+- **Synchronous Document Processing:** Document parsing, chunking, and vector indexing run synchronously during upload (typically takes 10–30 seconds depending on document size and API latency).
+- **Chat-Isolated Retrieval:** Vector retrieval is strictly scoped to the active conversation; documents uploaded in one chat are not queried by other chats.
+
+### Planned Improvements (Post-MVP1)
+
+- Asynchronous background task queue for document ingestion.
+- Server-Sent Events (SSE) for streaming AI responses.
+- Cross-conversation document sharing and centralized knowledge bases.
+- Additional file formats (spreadsheets, markdown, web URLs).

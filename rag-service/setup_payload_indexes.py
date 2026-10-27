@@ -1,0 +1,3 @@
+from services.qdrant_service import create_payload_indexes
+
+create_payload_indexes()

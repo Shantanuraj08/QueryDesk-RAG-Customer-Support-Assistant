@@ -39,3 +39,38 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/app/generated/prisma
+
+# Python virtual environment
+rag-service/.venv/
+.venv/
+venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Local environment secrets
+.env*
+!.env.example
+
+# Uploaded test documents (if not intended for Git)
+rag-service/sample.pdf
+
+
+# AI coding agent skills/configuration
+.agents/
+.claude/
+.windsurf/
+
+# Scratch & test scripts
+test-db.ts
+test-pg.ts
+support_policy_test.txt
+scripts/test-*.ts
+skills-lock.json
+
+# RAG test & diagnostic scripts
+rag-service/test_*.py
+rag-service/inspect_*.py

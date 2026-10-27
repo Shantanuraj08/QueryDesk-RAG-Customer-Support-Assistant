@@ -1,0 +1,13 @@
+fastapi[standard]
+python-multipart
+langchain-community
+langchain-text-splitters
+pypdf
+docx2txt
+beautifulsoup4
+google-genai
+python-dotenv
+
+qdrant-client
+
+groq
