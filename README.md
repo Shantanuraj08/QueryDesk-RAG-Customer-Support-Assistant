@@ -157,19 +157,3 @@ QDRANT_COLLECTION="support_documents"
 
 ---
 
-## Limitations (MVP1) & Future Work
-
-### Current MVP1 Limitations
-
-- **Conversation Cap:** Hard limit of 5 active conversations per user account (`MAX_CHATS = 5`).
-- **File Format & Size:** Only `.pdf`, `.docx`, and `.txt` files up to 10 MB are accepted.
-- **Question Length:** Questions are capped at 2,000 characters.
-- **Synchronous Document Processing:** Document parsing, chunking, and vector indexing run synchronously during upload (typically takes 10–30 seconds depending on document size and API latency).
-- **Chat-Isolated Retrieval:** Vector retrieval is strictly scoped to the active conversation; documents uploaded in one chat are not queried by other chats.
-
-### Planned Improvements (Post-MVP1)
-
-- Asynchronous background task queue for document ingestion.
-- Server-Sent Events (SSE) for streaming AI responses.
-- Cross-conversation document sharing and centralized knowledge bases.
-- Additional file formats (spreadsheets, markdown, web URLs).
