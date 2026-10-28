@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { signInWithGoogle } from "@/lib/google-auth";
 
 const inputClassName =
   "w-full px-3.5 py-2.5 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500";
@@ -59,6 +60,30 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+const handleGoogleSignIn = async () => {
+  if (isLoading) return;
+
+  setError(null);
+  setIsLoading(true);
+
+  try {
+    const res = await signInWithGoogle();
+
+    if (res.error) {
+      setError(res.error.message || "Google sign-in failed.");
+    }
+  } catch (err: unknown) {
+    const msg =
+      err instanceof Error
+        ? err.message
+        : "Google sign-in failed.";
+
+    setError(msg);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col justify-between p-6 sm:p-10">
@@ -167,16 +192,24 @@ export default function LoginPage() {
           </div>
         </form>
 
+        <div className="flex items-center gap-4 my-6">
+          <div className="flex-1 border-t border-gray-200" />
+          <span className="text-xs text-gray-400 font-medium">OR</span>
+          <div className="flex-1 border-t border-gray-200" />
+        </div>
+
         {/* Continue with Google Section */}
-        <div className="mt-8 text-center">
+        <div className="text-center">
           <p className="text-xs text-gray-500 mb-3 font-normal">
             Continue with Google
           </p>
           <div className="flex justify-center">
             <button
               type="button"
-              aria-label="Google authentication is not configured"
-              className="w-full sm:w-auto min-w-[200px] inline-flex items-center justify-center gap-2.5 px-6 py-2.5 bg-white border border-gray-300 rounded-full text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none cursor-default shadow-2xs"
+              onClick={handleGoogleSignIn}
+              disabled={isLoading}
+              aria-label="Continue with Google"
+              className="w-full sm:w-auto min-w-[200px] inline-flex items-center justify-center gap-2.5 px-6 py-2.5 bg-white border border-gray-300 rounded-full text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none cursor-pointer shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                 <path

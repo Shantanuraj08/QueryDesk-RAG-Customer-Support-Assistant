@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Plus, LogOut, X } from "lucide-react";
@@ -38,6 +39,7 @@ export function ChatSidebar({
   isUploading = false,
 }: ChatSidebarProps) {
   const router = useRouter();
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     try {
@@ -138,12 +140,13 @@ export function ChatSidebar({
         <div className="p-3 border-t border-gray-200/80 bg-white/60">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
-              {user.image ? (
+              {user.image && failedImageUrl !== user.image ? (
                 <Image
                   src={user.image}
                   alt={user.name || "User"}
                   width={28}
                   height={28}
+                  onError={() => setFailedImageUrl(user.image ?? null)}
                   className="w-7 h-7 rounded-full object-cover shrink-0 border border-gray-200"
                 />
               ) : (
